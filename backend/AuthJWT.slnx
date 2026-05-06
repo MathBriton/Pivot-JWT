@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="AuthJWT.Api.Tests/AuthJWT.Api.Tests.csproj" />
+  <Project Path="AuthJWT.Api/AuthJWT.Api.csproj" />
+</Solution>
