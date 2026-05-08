@@ -27,11 +27,13 @@ builder.Services.AddScoped<IUserRepository, UserRepository>();
 builder.Services.AddScoped<ITodoRepository, TodoRepository>();
 builder.Services.AddScoped<IRefreshTokenRepository, RefreshTokenRepository>();
 builder.Services.AddScoped<ICustomerRepository, CustomerRepository>();
+builder.Services.AddScoped<IWorkTaskRepository, WorkTaskRepository>();
 
 // Services
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<ITodoService, TodoService>();
 builder.Services.AddScoped<ICustomerService, CustomerService>();
+builder.Services.AddScoped<IWorkTaskService, WorkTaskService>();
 
 // JWT Authentication
 var jwtKey = builder.Configuration["Jwt:Key"]
@@ -114,6 +116,7 @@ app.UseAuthorization();
 
 app.MapAuthEndpoints();
 app.MapCustomerEndpoints();
+app.MapWorkTaskEndpoints();
 app.MapTodoEndpoints();
 
 app.Run();
