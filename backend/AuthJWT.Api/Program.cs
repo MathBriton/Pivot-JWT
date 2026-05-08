@@ -29,6 +29,7 @@ builder.Services.AddScoped<IRefreshTokenRepository, RefreshTokenRepository>();
 builder.Services.AddScoped<ICustomerRepository, CustomerRepository>();
 builder.Services.AddScoped<IWorkTaskRepository, WorkTaskRepository>();
 builder.Services.AddScoped<IAuditLogRepository, AuditLogRepository>();
+builder.Services.AddScoped<IDashboardRepository, DashboardRepository>();
 
 // Services
 builder.Services.AddScoped<IAuthService, AuthService>();
@@ -36,6 +37,8 @@ builder.Services.AddScoped<ITodoService, TodoService>();
 builder.Services.AddScoped<ICustomerService, CustomerService>();
 builder.Services.AddScoped<IWorkTaskService, WorkTaskService>();
 builder.Services.AddScoped<IAuditLogService, AuditLogService>();
+builder.Services.AddScoped<IDashboardService, DashboardService>();
+builder.Services.AddMemoryCache();
 
 // JWT Authentication
 var jwtKey = builder.Configuration["Jwt:Key"]
@@ -120,6 +123,7 @@ app.MapAuthEndpoints();
 app.MapCustomerEndpoints();
 app.MapWorkTaskEndpoints();
 app.MapAuditLogEndpoints();
+app.MapDashboardEndpoints();
 app.MapTodoEndpoints();
 
 app.Run();
