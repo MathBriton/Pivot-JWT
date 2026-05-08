@@ -26,10 +26,12 @@ builder.Services.AddDbContext<AppDbContext>(opt =>
 builder.Services.AddScoped<IUserRepository, UserRepository>();
 builder.Services.AddScoped<ITodoRepository, TodoRepository>();
 builder.Services.AddScoped<IRefreshTokenRepository, RefreshTokenRepository>();
+builder.Services.AddScoped<ICustomerRepository, CustomerRepository>();
 
 // Services
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<ITodoService, TodoService>();
+builder.Services.AddScoped<ICustomerService, CustomerService>();
 
 // JWT Authentication
 var jwtKey = builder.Configuration["Jwt:Key"]
@@ -111,6 +113,7 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapAuthEndpoints();
+app.MapCustomerEndpoints();
 app.MapTodoEndpoints();
 
 app.Run();

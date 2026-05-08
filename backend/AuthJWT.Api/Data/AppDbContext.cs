@@ -7,6 +7,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
 {
     public DbSet<User> Users => Set<User>();
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
+    public DbSet<Customer> Customers => Set<Customer>();
     public DbSet<TodoItem> Todos => Set<TodoItem>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -24,6 +25,12 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
              .WithMany()
              .HasForeignKey(t => t.UserId)
              .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<Customer>(e =>
+        {
+            e.HasIndex(c => c.Email);
+            e.Property(c => c.Status).HasDefaultValue(CustomerStatus.Active);
         });
 
         modelBuilder.Entity<TodoItem>(e =>
