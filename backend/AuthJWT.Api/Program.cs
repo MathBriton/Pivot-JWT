@@ -1,14 +1,22 @@
 using System.Text;
 using AuthJWT.Api.Data;
 using AuthJWT.Api.Endpoints;
+using AuthJWT.Api.Models;
 using AuthJWT.Api.Repositories;
 using AuthJWT.Api.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Scalar.AspNetCore;
+using Serilog;
+
+Log.Logger = new LoggerConfiguration()
+    .WriteTo.Console()
+    .WriteTo.File("logs/nexusdesk-.log", rollingInterval: RollingInterval.Day)
+    .CreateLogger();
 
 var builder = WebApplication.CreateBuilder(args);
+builder.Host.UseSerilog();
 
 // Database
 builder.Services.AddDbContext<AppDbContext>(opt =>
@@ -17,6 +25,7 @@ builder.Services.AddDbContext<AppDbContext>(opt =>
 // Repositories
 builder.Services.AddScoped<IUserRepository, UserRepository>();
 builder.Services.AddScoped<ITodoRepository, TodoRepository>();
+builder.Services.AddScoped<IRefreshTokenRepository, RefreshTokenRepository>();
 
 // Services
 builder.Services.AddScoped<IAuthService, AuthService>();
@@ -51,7 +60,7 @@ builder.Services.AddCors(opt =>
               .AllowAnyHeader()
               .AllowAnyMethod()));
 
-// OpenAPI (built-in .NET 10)
+// OpenAPI
 builder.Services.AddOpenApi();
 
 var app = builder.Build();
@@ -68,32 +77,35 @@ static async Task SeedAsync(AppDbContext db)
 {
     if (db.Users.Any()) return;
 
-    var user = new AuthJWT.Api.Models.User
+    var admin = new User
     {
-        Name = "Test User",
-        Email = "test@example.com",
-        PasswordHash = BCrypt.Net.BCrypt.HashPassword("test123"),
-        Role = "User"
+        Name = "Administrador",
+        Email = "admin@nexusdesk.com",
+        PasswordHash = BCrypt.Net.BCrypt.HashPassword("admin123"),
+        Role = UserRoles.Administrator
     };
-    db.Users.Add(user);
+    db.Users.Add(admin);
 
-    await db.SaveChangesAsync();
+    var employee = new User
+    {
+        Name = "Funcionário Teste",
+        Email = "employee@nexusdesk.com",
+        PasswordHash = BCrypt.Net.BCrypt.HashPassword("employee123"),
+        Role = UserRoles.Employee
+    };
+    db.Users.Add(employee);
 
-    db.Todos.AddRange(
-        new AuthJWT.Api.Models.TodoItem { Title = "Learn .NET 10 Minimal API", Description = "Study the new minimal API features", UserId = user.Id },
-        new AuthJWT.Api.Models.TodoItem { Title = "Build a React app", Description = "Create a full stack project with TypeScript", UserId = user.Id },
-        new AuthJWT.Api.Models.TodoItem { Title = "Configure JWT Auth", Description = "Set up authentication with JWT Bearer tokens", IsCompleted = true, CompletedAt = DateTime.UtcNow, UserId = user.Id }
-    );
     await db.SaveChangesAsync();
 }
 
 app.MapOpenApi();
 app.MapScalarApiReference(opt =>
 {
-    opt.WithTitle("AuthJWT API")
+    opt.WithTitle("NexusDesk API")
        .WithDefaultHttpClient(ScalarTarget.JavaScript, ScalarClient.Fetch);
 });
 
+app.UseSerilogRequestLogging();
 app.UseCors();
 app.UseAuthentication();
 app.UseAuthorization();

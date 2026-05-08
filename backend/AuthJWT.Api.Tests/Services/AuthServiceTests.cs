@@ -10,12 +10,14 @@ namespace AuthJWT.Api.Tests.Services;
 public class AuthServiceTests
 {
     private readonly Mock<IUserRepository> _userRepo;
+    private readonly Mock<IRefreshTokenRepository> _refreshRepo;
     private readonly IConfiguration _config;
     private readonly AuthService _sut;
 
     public AuthServiceTests()
     {
         _userRepo = new Mock<IUserRepository>();
+        _refreshRepo = new Mock<IRefreshTokenRepository>();
         _config = new ConfigurationBuilder()
             .AddInMemoryCollection(new Dictionary<string, string?>
             {
@@ -25,7 +27,7 @@ public class AuthServiceTests
             })
             .Build();
 
-        _sut = new AuthService(_userRepo.Object, _config);
+        _sut = new AuthService(_userRepo.Object, _refreshRepo.Object, _config);
     }
 
     // --- Register ---
@@ -36,14 +38,16 @@ public class AuthServiceTests
         _userRepo.Setup(r => r.EmailExistsAsync("novo@email.com")).ReturnsAsync(false);
         _userRepo.Setup(r => r.CreateAsync(It.IsAny<User>()))
                  .ReturnsAsync((User u) => { u.Id = 1; return u; });
+        _refreshRepo.Setup(r => r.CreateAsync(It.IsAny<RefreshToken>()))
+                    .ReturnsAsync((RefreshToken t) => t);
 
         var result = await _sut.RegisterAsync(new RegisterRequest("Novo", "novo@email.com", "senha123"));
 
         Assert.NotNull(result);
         Assert.Equal("Novo", result.Name);
         Assert.Equal("novo@email.com", result.Email);
-        Assert.Equal("User", result.Role);
-        Assert.False(string.IsNullOrWhiteSpace(result.Token));
+        Assert.Equal("Employee", result.Role);
+        Assert.False(string.IsNullOrWhiteSpace(result.AccessToken));
     }
 
     [Fact]
@@ -65,6 +69,8 @@ public class AuthServiceTests
         _userRepo.Setup(r => r.CreateAsync(It.IsAny<User>()))
                  .Callback<User>(u => savedUser = u)
                  .ReturnsAsync((User u) => u);
+        _refreshRepo.Setup(r => r.CreateAsync(It.IsAny<RefreshToken>()))
+                    .ReturnsAsync((RefreshToken t) => t);
 
         await _sut.RegisterAsync(new RegisterRequest("User", "user@email.com", "minhasenha"));
 
@@ -81,6 +87,8 @@ public class AuthServiceTests
         _userRepo.Setup(r => r.CreateAsync(It.IsAny<User>()))
                  .Callback<User>(u => savedUser = u)
                  .ReturnsAsync((User u) => u);
+        _refreshRepo.Setup(r => r.CreateAsync(It.IsAny<RefreshToken>()))
+                    .ReturnsAsync((RefreshToken t) => t);
 
         await _sut.RegisterAsync(new RegisterRequest("User", "UPPER@EMAIL.COM", "senha123"));
 
@@ -98,15 +106,17 @@ public class AuthServiceTests
             Name = "Ana",
             Email = "ana@email.com",
             PasswordHash = BCrypt.Net.BCrypt.HashPassword("senha123"),
-            Role = "User"
+            Role = "Employee"
         };
         _userRepo.Setup(r => r.GetByEmailAsync("ana@email.com")).ReturnsAsync(user);
+        _refreshRepo.Setup(r => r.CreateAsync(It.IsAny<RefreshToken>()))
+                    .ReturnsAsync((RefreshToken t) => t);
 
         var result = await _sut.LoginAsync(new LoginRequest("ana@email.com", "senha123"));
 
         Assert.NotNull(result);
         Assert.Equal("Ana", result.Name);
-        Assert.False(string.IsNullOrWhiteSpace(result.Token));
+        Assert.False(string.IsNullOrWhiteSpace(result.AccessToken));
     }
 
     [Fact]

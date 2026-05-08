@@ -48,5 +48,30 @@ public static class AuthEndpoints
         .WithName("Login")
         .WithSummary("Login e obtenção do token JWT")
         .AllowAnonymous();
+
+        group.MapPost("/refresh", async (RefreshRequest request, IAuthService authService) =>
+        {
+            if (string.IsNullOrWhiteSpace(request.Token))
+                return Results.BadRequest(ApiResponse<object>.Fail("Token de refresh é obrigatório."));
+
+            var result = await authService.RefreshAsync(request.Token);
+            return result is null
+                ? Results.Unauthorized()
+                : Results.Ok(ApiResponse<AuthResponse>.Ok(result, "Token renovado com sucesso."));
+        })
+        .WithName("Refresh")
+        .WithSummary("Renovar access token via refresh token")
+        .AllowAnonymous();
+
+        group.MapPost("/logout", async (RefreshRequest request, IAuthService authService) =>
+        {
+            var revoked = await authService.LogoutAsync(request.Token);
+            return revoked
+                ? Results.Ok(ApiResponse<object>.Ok(null!, "Logout realizado com sucesso."))
+                : Results.BadRequest(ApiResponse<object>.Fail("Token inválido."));
+        })
+        .WithName("Logout")
+        .WithSummary("Revogar refresh token (logout)")
+        .RequireAuthorization();
     }
 }
