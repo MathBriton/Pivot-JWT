@@ -1,19 +1,31 @@
-# Auth-JWT — Full Stack App
+# NexusDesk
 
-**.NET 10 Minimal API** + **React 19** + **TypeScript** + **Tailwind CSS v4** + **ShadCN UI**
+Plataforma de CRM e gerenciamento de workflow orientada a empresas. Projeto de portfolio que demonstra arquitetura enterprise real com .NET 10 Minimal API e React.
 
 ## Stack
 
-| Layer | Tech |
+| Camada | Tecnologia |
 |---|---|
-| Backend | .NET 10 Minimal API, EF Core, SQLite |
-| Auth | JWT Bearer (BCrypt password hashing) |
-| Architecture | Repository + Service pattern |
+| Backend | .NET 10 Minimal API, EF Core, PostgreSQL |
+| Autenticação | JWT Bearer, BCrypt |
+| Arquitetura | Monólito modular — Repository + Service pattern |
+| Validação | FluentValidation |
+| Testes | xUnit, FluentAssertions, Moq |
 | Frontend | React 19, TypeScript, Vite |
 | UI | Tailwind CSS v4, ShadCN UI (Radix) |
-| HTTP Client | Axios |
+| Cliente HTTP | Axios, TanStack Query |
 
-## Running the project
+## Módulos
+
+| Módulo | Status |
+|---|---|
+| Auth & Autorização | ✅ Implementado |
+| Gerenciamento de Clientes | 🔜 Em breve |
+| Tarefas & Workflow | 🔜 Em breve |
+| Logs de Auditoria | 🔜 Em breve |
+| Dashboard | 🔜 Em breve |
+
+## Como executar
 
 ### Backend
 
@@ -22,50 +34,62 @@ cd backend/AuthJWT.Api
 dotnet run
 ```
 
-API available at `http://localhost:5000`
-Scalar API docs at `http://localhost:5000/scalar/v1`
+API disponível em `http://localhost:5000`  
+Documentação Scalar em `http://localhost:5000/scalar/v1`
 
 ### Frontend
 
 ```bash
 cd frontend
+npm install
 npm run dev
 ```
 
-App available at `http://localhost:5173`
+App disponível em `http://localhost:5173`
 
-## API Endpoints
+## Endpoints
 
 ### Auth
-| Method | Endpoint | Auth |
-|---|---|---|
-| POST | /api/auth/register | No |
-| POST | /api/auth/login | No |
 
-### Todos (all require JWT)
-| Method | Endpoint | Description |
+| Método | Endpoint | Autenticação |
 |---|---|---|
-| GET | /api/todos | List user todos |
-| GET | /api/todos/{id} | Get todo by id |
-| POST | /api/todos | Create todo |
-| PUT | /api/todos/{id} | Update todo |
-| DELETE | /api/todos/{id} | Delete todo |
+| POST | /api/auth/register | Não |
+| POST | /api/auth/login | Não |
 
-## Architecture
+### Padrão de resposta
+
+```json
+{
+  "success": true,
+  "message": "Operação realizada com sucesso.",
+  "data": {}
+}
+```
+
+## Arquitetura
 
 ```
 backend/AuthJWT.Api/
-├── Data/          # DbContext (EF Core + SQLite)
-├── Models/        # User, TodoItem
-├── DTOs/          # Request/Response records
-├── Repositories/  # Data access layer (interfaces + implementations)
-├── Services/      # Business logic (interfaces + implementations)
-└── Endpoints/     # Minimal API endpoint mapping
+├── Data/          # DbContext (EF Core)
+├── Domain/        # Entidades e regras de negócio
+├── DTOs/          # Records de Request/Response
+├── Endpoints/     # Mapeamento de endpoints Minimal API
+├── Repositories/  # Acesso a dados (interfaces + implementações)
+├── Services/      # Lógica de negócio (interfaces + implementações)
+├── Shared/        # ApiResponse<T> — wrapper de resposta padrão
+└── Validators/    # FluentValidation (RegisterRequest, LoginRequest)
 
 frontend/src/
-├── components/    # ProtectedRoute, ShadCN UI components
-├── contexts/      # AuthContext (JWT storage, login/logout)
+├── components/    # ProtectedRoute, componentes ShadCN UI
+├── contexts/      # AuthContext (JWT, login/logout)
 ├── pages/         # LoginPage, RegisterPage, DashboardPage
-├── services/      # api.ts (axios), auth.service.ts, todo.service.ts
-└── types/         # Shared TypeScript interfaces
+├── services/      # api.ts (axios), auth.service.ts
+└── types/         # Interfaces TypeScript compartilhadas
 ```
+
+## Princípios de engenharia
+
+- **TDD** — testes escritos antes da implementação (Red → Green → Refactor)
+- **XP** — iterações pequenas, design simples, feedback rápido
+- **SOLID** — cada classe tem responsabilidade única e bem definida
+- **Clean Code** — nomenclatura explícita, funções de 4–20 linhas

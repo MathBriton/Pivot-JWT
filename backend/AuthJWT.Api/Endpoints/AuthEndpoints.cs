@@ -1,5 +1,7 @@
 using AuthJWT.Api.DTOs;
 using AuthJWT.Api.Services;
+using AuthJWT.Api.Shared;
+using AuthJWT.Api.Validators;
 
 namespace AuthJWT.Api.Endpoints;
 
@@ -11,32 +13,40 @@ public static class AuthEndpoints
 
         group.MapPost("/register", async (RegisterRequest request, IAuthService authService) =>
         {
-            if (string.IsNullOrWhiteSpace(request.Name) ||
-                string.IsNullOrWhiteSpace(request.Email) ||
-                string.IsNullOrWhiteSpace(request.Password))
-                return Results.BadRequest(new { message = "Name, email and password are required." });
-
-            if (request.Password.Length < 6)
-                return Results.BadRequest(new { message = "Password must be at least 6 characters." });
+            var validator = new RegisterRequestValidator();
+            var validation = await validator.ValidateAsync(request);
+            if (!validation.IsValid)
+            {
+                var errors = validation.Errors.Select(e => e.ErrorMessage);
+                return Results.BadRequest(ApiResponse<object>.Fail(string.Join(" | ", errors)));
+            }
 
             var result = await authService.RegisterAsync(request);
             return result is null
-                ? Results.Conflict(new { message = "Email already registered." })
-                : Results.Ok(result);
+                ? Results.Conflict(ApiResponse<object>.Fail("E-mail já cadastrado."))
+                : Results.Ok(ApiResponse<AuthResponse>.Ok(result, "Usuário registrado com sucesso."));
         })
         .WithName("Register")
-        .WithSummary("Register a new user")
+        .WithSummary("Registrar novo usuário")
         .AllowAnonymous();
 
         group.MapPost("/login", async (LoginRequest request, IAuthService authService) =>
         {
+            var validator = new LoginRequestValidator();
+            var validation = await validator.ValidateAsync(request);
+            if (!validation.IsValid)
+            {
+                var errors = validation.Errors.Select(e => e.ErrorMessage);
+                return Results.BadRequest(ApiResponse<object>.Fail(string.Join(" | ", errors)));
+            }
+
             var result = await authService.LoginAsync(request);
             return result is null
                 ? Results.Unauthorized()
-                : Results.Ok(result);
+                : Results.Ok(ApiResponse<AuthResponse>.Ok(result, "Login realizado com sucesso."));
         })
         .WithName("Login")
-        .WithSummary("Login and get JWT token")
+        .WithSummary("Login e obtenção do token JWT")
         .AllowAnonymous();
     }
 }
