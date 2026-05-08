@@ -9,6 +9,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
     public DbSet<Customer> Customers => Set<Customer>();
     public DbSet<WorkTask> WorkTasks => Set<WorkTask>();
+    public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
     public DbSet<TodoItem> Todos => Set<TodoItem>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -41,6 +42,13 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
              .WithMany()
              .HasForeignKey(t => t.AssignedUserId)
              .OnDelete(DeleteBehavior.SetNull);
+        });
+
+        modelBuilder.Entity<AuditLog>(e =>
+        {
+            e.HasIndex(l => l.OccurredAt);
+            e.HasIndex(l => l.EntityName);
+            e.HasIndex(l => l.Action);
         });
 
         modelBuilder.Entity<TodoItem>(e =>

@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using AuthJWT.Api.DTOs;
 using AuthJWT.Api.Models;
 using AuthJWT.Api.Services;
@@ -38,7 +39,7 @@ public static class CustomerEndpoints
         .WithName("BuscarCliente")
         .WithSummary("Buscar cliente por ID");
 
-        group.MapPost("/", async (CreateCustomerRequest request, ICustomerService service) =>
+        group.MapPost("/", async (CreateCustomerRequest request, ICustomerService service, IAuditLogService audit, ClaimsPrincipal user) =>
         {
             var validator = new CreateCustomerRequestValidator();
             var validation = await validator.ValidateAsync(request);
@@ -49,15 +50,18 @@ public static class CustomerEndpoints
             }
 
             var result = await service.CreateAsync(request);
-            return result is null
-                ? Results.Conflict(ApiResponse<object>.Fail("E-mail já cadastrado."))
-                : Results.Created($"/api/customers/{result.Id}", ApiResponse<CustomerResponse>.Ok(result, "Cliente criado com sucesso."));
+            if (result is null)
+                return Results.Conflict(ApiResponse<object>.Fail("E-mail já cadastrado."));
+
+            var (userId, userName) = ExtractUser(user);
+            await audit.LogAsync(userId, userName, AuditAction.CustomerCreated, "Customer", result.Id.ToString(), result.Name);
+            return Results.Created($"/api/customers/{result.Id}", ApiResponse<CustomerResponse>.Ok(result, "Cliente criado com sucesso."));
         })
         .WithName("CriarCliente")
         .WithSummary("Criar novo cliente")
         .RequireAuthorization(policy => policy.RequireRole(UserRoles.Administrator, UserRoles.Manager));
 
-        group.MapPut("/{id:int}", async (int id, UpdateCustomerRequest request, ICustomerService service) =>
+        group.MapPut("/{id:int}", async (int id, UpdateCustomerRequest request, ICustomerService service, IAuditLogService audit, ClaimsPrincipal user) =>
         {
             var validator = new UpdateCustomerRequestValidator();
             var validation = await validator.ValidateAsync(request);
@@ -68,23 +72,37 @@ public static class CustomerEndpoints
             }
 
             var result = await service.UpdateAsync(id, request);
-            return result is null
-                ? Results.NotFound(ApiResponse<object>.Fail("Cliente não encontrado ou e-mail já cadastrado."))
-                : Results.Ok(ApiResponse<CustomerResponse>.Ok(result, "Cliente atualizado com sucesso."));
+            if (result is null)
+                return Results.NotFound(ApiResponse<object>.Fail("Cliente não encontrado ou e-mail já cadastrado."));
+
+            var (userId, userName) = ExtractUser(user);
+            await audit.LogAsync(userId, userName, AuditAction.CustomerUpdated, "Customer", id.ToString(), result.Name);
+            return Results.Ok(ApiResponse<CustomerResponse>.Ok(result, "Cliente atualizado com sucesso."));
         })
         .WithName("AtualizarCliente")
         .WithSummary("Atualizar dados do cliente")
         .RequireAuthorization(policy => policy.RequireRole(UserRoles.Administrator, UserRoles.Manager));
 
-        group.MapDelete("/{id:int}", async (int id, ICustomerService service) =>
+        group.MapDelete("/{id:int}", async (int id, ICustomerService service, IAuditLogService audit, ClaimsPrincipal user) =>
         {
             var deleted = await service.DeleteAsync(id);
-            return deleted
-                ? Results.Ok(ApiResponse<object>.Ok(null!, "Cliente removido com sucesso."))
-                : Results.NotFound(ApiResponse<object>.Fail("Cliente não encontrado."));
+            if (!deleted)
+                return Results.NotFound(ApiResponse<object>.Fail("Cliente não encontrado."));
+
+            var (userId, userName) = ExtractUser(user);
+            await audit.LogAsync(userId, userName, AuditAction.CustomerDeleted, "Customer", id.ToString());
+            return Results.Ok(ApiResponse<object>.Ok(null!, "Cliente removido com sucesso."));
         })
         .WithName("RemoverCliente")
         .WithSummary("Remover cliente (soft delete)")
         .RequireAuthorization(policy => policy.RequireRole(UserRoles.Administrator, UserRoles.Manager));
+    }
+
+    private static (int? userId, string userName) ExtractUser(ClaimsPrincipal user)
+    {
+        var idStr = user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        var userId = idStr is not null ? int.Parse(idStr) : (int?)null;
+        var userName = user.FindFirst(ClaimTypes.Email)?.Value ?? "anonymous";
+        return (userId, userName);
     }
 }

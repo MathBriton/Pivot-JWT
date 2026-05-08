@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using AuthJWT.Api.DTOs;
 using AuthJWT.Api.Models;
 using AuthJWT.Api.Services;
@@ -38,7 +39,7 @@ public static class WorkTaskEndpoints
         .WithName("BuscarTarefa")
         .WithSummary("Buscar tarefa por ID");
 
-        group.MapPost("/", async (CreateWorkTaskRequest request, IWorkTaskService service) =>
+        group.MapPost("/", async (CreateWorkTaskRequest request, IWorkTaskService service, IAuditLogService audit, ClaimsPrincipal user) =>
         {
             var validator = new CreateWorkTaskRequestValidator();
             var validation = await validator.ValidateAsync(request);
@@ -49,6 +50,8 @@ public static class WorkTaskEndpoints
             }
 
             var result = await service.CreateAsync(request);
+            var (userId, userName) = ExtractUser(user);
+            await audit.LogAsync(userId, userName, AuditAction.WorkTaskCreated, "WorkTask", result.Id.ToString(), result.Title);
             return Results.Created($"/api/tasks/{result.Id}",
                 ApiResponse<WorkTaskResponse>.Ok(result, "Tarefa criada com sucesso."));
         })
@@ -56,21 +59,24 @@ public static class WorkTaskEndpoints
         .WithSummary("Criar nova tarefa")
         .RequireAuthorization(policy => policy.RequireRole(UserRoles.Administrator, UserRoles.Manager));
 
-        group.MapPut("/{id:int}", async (int id, UpdateWorkTaskRequest request, IWorkTaskService service) =>
+        group.MapPut("/{id:int}", async (int id, UpdateWorkTaskRequest request, IWorkTaskService service, IAuditLogService audit, ClaimsPrincipal user) =>
         {
             if (string.IsNullOrWhiteSpace(request.Title))
                 return Results.BadRequest(ApiResponse<object>.Fail("Título é obrigatório."));
 
             var result = await service.UpdateAsync(id, request);
-            return result is null
-                ? Results.NotFound(ApiResponse<object>.Fail("Tarefa não encontrada ou não pode ser editada."))
-                : Results.Ok(ApiResponse<WorkTaskResponse>.Ok(result, "Tarefa atualizada com sucesso."));
+            if (result is null)
+                return Results.NotFound(ApiResponse<object>.Fail("Tarefa não encontrada ou não pode ser editada."));
+
+            var (userId, userName) = ExtractUser(user);
+            await audit.LogAsync(userId, userName, AuditAction.WorkTaskUpdated, "WorkTask", id.ToString(), result.Title);
+            return Results.Ok(ApiResponse<WorkTaskResponse>.Ok(result, "Tarefa atualizada com sucesso."));
         })
         .WithName("AtualizarTarefa")
         .WithSummary("Atualizar tarefa (não permitido em tarefas concluídas ou canceladas)")
         .RequireAuthorization(policy => policy.RequireRole(UserRoles.Administrator, UserRoles.Manager));
 
-        group.MapPatch("/{id:int}/status", async (int id, ChangeWorkTaskStatusRequest request, IWorkTaskService service) =>
+        group.MapPatch("/{id:int}/status", async (int id, ChangeWorkTaskStatusRequest request, IWorkTaskService service, IAuditLogService audit, ClaimsPrincipal user) =>
         {
             var validator = new ChangeWorkTaskStatusRequestValidator();
             var validation = await validator.ValidateAsync(request);
@@ -81,11 +87,22 @@ public static class WorkTaskEndpoints
             }
 
             var result = await service.ChangeStatusAsync(id, request);
-            return result is null
-                ? Results.BadRequest(ApiResponse<object>.Fail("Transição de status inválida ou tarefa não encontrada."))
-                : Results.Ok(ApiResponse<WorkTaskResponse>.Ok(result, "Status atualizado com sucesso."));
+            if (result is null)
+                return Results.BadRequest(ApiResponse<object>.Fail("Transição de status inválida ou tarefa não encontrada."));
+
+            var (userId, userName) = ExtractUser(user);
+            await audit.LogAsync(userId, userName, AuditAction.WorkTaskStatusChanged, "WorkTask", id.ToString(), $"→ {request.Status}");
+            return Results.Ok(ApiResponse<WorkTaskResponse>.Ok(result, "Status atualizado com sucesso."));
         })
         .WithName("MudarStatusTarefa")
         .WithSummary("Mudar status da tarefa (respeita fluxo Kanban)");
+    }
+
+    private static (int? userId, string userName) ExtractUser(ClaimsPrincipal user)
+    {
+        var idStr = user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        var userId = idStr is not null ? int.Parse(idStr) : (int?)null;
+        var userName = user.FindFirst(ClaimTypes.Email)?.Value ?? "anonymous";
+        return (userId, userName);
     }
 }
